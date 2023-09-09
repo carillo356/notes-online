@@ -1,0 +1,11 @@
+api:
+  endpoint:
+    base-url: /api/v1
+spring:
+  datasource:
+    url: jdbc:h2:mem:gmpc
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    show-sql: true
