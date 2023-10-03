@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @RestController
+@CrossOrigin    
 @RequestMapping("${api.endpoint.base-url}/notes")
 public class NoteController {
 
@@ -54,7 +55,7 @@ public class NoteController {
     @DeleteMapping("/delete/{noteId}")
     public Result deleteNote(@PathVariable String noteId) {
         this.noteService.delete(noteId);
-        return new Result(true, StatusCode.SUCCESS, "Delete Success");
+        return new Result(true, StatusCode.SUCCESS, "Delete Success", noteId);
     }
 
     @PutMapping("/update/{noteId}")

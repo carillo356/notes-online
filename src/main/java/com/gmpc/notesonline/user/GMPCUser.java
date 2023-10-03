@@ -3,6 +3,7 @@ package com.gmpc.notesonline.user;
 import com.gmpc.notesonline.note.Note;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotEmpty;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -12,17 +13,21 @@ public class GMPCUser implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private Integer id;
-
-    @NotEmpty
+    @NotEmpty(message = "name is required")
     private String name;
+    @NotEmpty(message = "email is required")
     private String email;
+    @NotEmpty(message = "password is required")
     private String password;
     private boolean enabled;
     private String role;
-    @OneToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, mappedBy = "owner")
+    @OneToMany(fetch = FetchType.EAGER, cascade = {CascadeType.PERSIST, CascadeType.MERGE}, mappedBy = "owner")
     private List<Note> notes = new ArrayList<>();
 
     public GMPCUser() {
+    }
+
+    public GMPCUser(String name, String email, String password) {
     }
 
     public Integer getId() {
@@ -73,6 +78,7 @@ public class GMPCUser implements Serializable {
         this.role = role;
     }
 
+    @Transactional
     public List<Note> getNotes() {
         return notes;
     }
@@ -88,4 +94,5 @@ public class GMPCUser implements Serializable {
     public Integer getNumberOfNotes() {
         return this.notes.size();
     }
+
 }

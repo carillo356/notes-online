@@ -7,11 +7,15 @@ import com.gmpc.notesonline.system.StatusCode;
 import com.gmpc.notesonline.system.exception.ObjectNotFoundException;
 import com.gmpc.notesonline.system.exception.UserNotFoundException;
 import com.gmpc.notesonline.user.GMPCUser;
+import com.gmpc.notesonline.user.GMPCUserController;
+import com.gmpc.notesonline.user.GMPCUserRepository;
+import com.gmpc.notesonline.user.GMPCUserService;
 import org.h2.engine.User;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +24,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.*;
@@ -32,52 +37,57 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
 @SpringBootTest
+@WithMockUser
 @AutoConfigureMockMvc
 class NoteControllerTest {
     @Autowired
     MockMvc mockMvc;
-    @MockBean
-    NoteService noteService;
-
     @Autowired
     ObjectMapper objectMapper;
+    @MockBean
+    NoteService noteService;
+    @MockBean
+    GMPCUserRepository gmpcUserRepository;
+
+    @InjectMocks
+    NoteController noteController;
 
     List<Note> notes;
 
-    GMPCUser user0;
-    Note note0;
-    Note note1;
+    GMPCUser noteControllerUser0;
+    Note noteControllerNote0;
+    Note noteControllerNote1;
 
     @Value("${api.endpoint.base-url}")
     String baseUrl;
 
     @BeforeEach
     void setUp() {
-        this.user0 = new GMPCUser();
-        user0.setId(0);
-        user0.setName("Aaron");
-        user0.setEmail("aaron@email.com");
-        user0.setPassword("1234567890");
-        user0.setEnabled(true);
-        user0.setRole("user");
+        this.noteControllerUser0 = new GMPCUser();
+        noteControllerUser0.setId(0);
+        noteControllerUser0.setName("Aaron");
+        noteControllerUser0.setEmail("notecontroller@email.com");
+        noteControllerUser0.setPassword("1234567890");
+        noteControllerUser0.setEnabled(true);
+        noteControllerUser0.setRole("user");
 
-        this.note0 = new Note();
-        note0.setId("0");
-        note0.setTitle("Title0");
-        note0.setDescription("Description0");
-        note0.setDate(new Date());
-        note0.setOwner(user0);
+        this.noteControllerNote0 = new Note();
+        noteControllerNote0.setId("0");
+        noteControllerNote0.setTitle("Title0");
+        noteControllerNote0.setDescription("Description0");
+        noteControllerNote0.setDate(new Date());
+        noteControllerNote0.setOwner(noteControllerUser0);
 
-        this.note1 = new Note();
-        note1.setId("1");
-        note1.setTitle("Title1");
-        note1.setDescription("Description1");
-        note1.setDate(new Date());
-        note1.setOwner(user0);
+        this.noteControllerNote1 = new Note();
+        noteControllerNote1.setId("1");
+        noteControllerNote1.setTitle("Title1");
+        noteControllerNote1.setDescription("Description1");
+        noteControllerNote1.setDate(new Date());
+        noteControllerNote1.setOwner(noteControllerUser0);
 
         this.notes = new ArrayList<>();
-        this.notes.add(note0);
-        this.notes.add(note1);
+        this.notes.add(noteControllerNote0);
+        this.notes.add(noteControllerNote1);
     }
 
     @AfterEach
@@ -125,13 +135,13 @@ class NoteControllerTest {
     @Test
     void testFindAllNotesUserNotFound() throws Exception {
         //Given
-        given(this.noteService.findAllByOwner_Id(0)).willThrow(new UserNotFoundException());
+        given(this.noteService.findAllByOwner_Id(Mockito.any(Integer.class))).willThrow(new UserNotFoundException());
 
         //When and Then
-        this.mockMvc.perform(get(this.baseUrl + "/notes/findAllById/0").accept(MediaType.APPLICATION_JSON))
+        this.mockMvc.perform(get(this.baseUrl + "/notes/findAllById/-999").accept(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.flag").value(false))
-                .andExpect(jsonPath("$.code").value(StatusCode.NOT_FOUND))
-                .andExpect(jsonPath("$.message").value("Could not find user"));
+                .andExpect(jsonPath("$.code").value(StatusCode.UNAUTHORIZED))
+                .andExpect(jsonPath("$.message").value("username or password is incorrect."));
     }
 
     @Test
@@ -149,12 +159,12 @@ class NoteControllerTest {
         savedNote.setTitle("Amazing Title");
         savedNote.setDescription("Amazing Description");
         savedNote.setDate(new Date(2023, 9, 6));
-        savedNote.setOwner(user0);
+        savedNote.setOwner(noteControllerUser0);
 
         given(this.noteService.save(Mockito.any(Note.class), Mockito.any(String.class))).willReturn(savedNote);
 
         //When and Then
-        this.mockMvc.perform(post(this.baseUrl + "/notes/create/aaron@email.com").contentType(MediaType.APPLICATION_JSON).content(json).accept(MediaType.APPLICATION_JSON))
+        this.mockMvc.perform(post(this.baseUrl + "/notes/create/notecontroller@email.com").contentType(MediaType.APPLICATION_JSON).content(json).accept(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.flag").value(true))
                 .andExpect(jsonPath("$.code").value(StatusCode.SUCCESS))
                 .andExpect(jsonPath("$.message").value("Create Success"))
@@ -178,8 +188,8 @@ class NoteControllerTest {
         //When and Then
         this.mockMvc.perform(post(this.baseUrl + "/notes/create/test@email.com").contentType(MediaType.APPLICATION_JSON).content(json).accept(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.flag").value(false))
-                .andExpect(jsonPath("$.code").value(StatusCode.NOT_FOUND))
-                .andExpect(jsonPath("$.message").value("Could not find user with email test@email.com"));
+                .andExpect(jsonPath("$.code").value(StatusCode.UNAUTHORIZED))
+                .andExpect(jsonPath("$.message").value("username or password is incorrect."));
     }
 
     @Test
@@ -221,7 +231,7 @@ class NoteControllerTest {
         updateNote.setTitle("Amazing Title");
         updateNote.setDescription("Amazing Description");
         updateNote.setDate(new Date());
-        updateNote.setOwner(user0);
+        updateNote.setOwner(noteControllerUser0);
 
         given(this.noteService.update(eq("0"), Mockito.any(Note.class))).willReturn(updateNote);
 
