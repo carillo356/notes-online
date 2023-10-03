@@ -38,37 +38,37 @@ class NoteServiceTest {
     NoteService noteService;
 
     List<Note> notes;
-    GMPCUser user0;
-    Note note0;
-    Note note1;
+    GMPCUser noteServiceUser0;
+    Note noteServiceNote0;
+    Note noteServiceNote1;
 
     @BeforeEach
     void setUp() {
-        this.user0 = new GMPCUser();
-        user0.setId(0);
-        user0.setName("Aaron");
-        user0.setEmail("aaron@email.com");
-        user0.setPassword("1234567890");
-        user0.setEnabled(true);
-        user0.setRole("user");
+        this.noteServiceUser0 = new GMPCUser();
+        noteServiceUser0.setId(0);
+        noteServiceUser0.setName("Aaron");
+        noteServiceUser0.setEmail("noteservice@email.com");
+        noteServiceUser0.setPassword("1234567890");
+        noteServiceUser0.setEnabled(true);
+        noteServiceUser0.setRole("user");
 
-        this.note0 = new Note();
-        note0.setId("0");
-        note0.setTitle("Title0");
-        note0.setDescription("Description0");
-        note0.setDate(new Date());
-        note0.setOwner(user0);
+        this.noteServiceNote0 = new Note();
+        noteServiceNote0.setId("0");
+        noteServiceNote0.setTitle("Title0");
+        noteServiceNote0.setDescription("Description0");
+        noteServiceNote0.setDate(new Date());
+        noteServiceNote0.setOwner(noteServiceUser0);
 
-        this.note1 = new Note();
-        note1.setId("1");
-        note1.setTitle("Title1");
-        note1.setDescription("Description1");
-        note1.setDate(new Date());
-        note1.setOwner(user0);
+        this.noteServiceNote1 = new Note();
+        noteServiceNote1.setId("1");
+        noteServiceNote1.setTitle("Title1");
+        noteServiceNote1.setDescription("Description1");
+        noteServiceNote1.setDate(new Date());
+        noteServiceNote1.setOwner(noteServiceUser0);
 
         this.notes = new ArrayList<>();
-        this.notes.add(note0);
-        this.notes.add(note1);
+        this.notes.add(noteServiceNote0);
+        this.notes.add(noteServiceNote1);
     }
 
     @AfterEach
@@ -78,16 +78,16 @@ class NoteServiceTest {
     @Test
     void testFindByIdSuccess() {
         //Given
-        given(noteRepository.findById("0")).willReturn(Optional.of(note0));
+        given(noteRepository.findById("0")).willReturn(Optional.of(noteServiceNote0));
 
         //When
         Note returnedNote = noteService.findById("0");
 
         //Then
-        assertThat(returnedNote.getId()).isEqualTo(note0.getId());
-        assertThat(returnedNote.getTitle()).isEqualTo(note0.getTitle());
-        assertThat(returnedNote.getDescription()).isEqualTo(note0.getDescription());
-        assertThat(returnedNote.getDate()).isEqualTo(note0.getDate());
+        assertThat(returnedNote.getId()).isEqualTo(noteServiceNote0.getId());
+        assertThat(returnedNote.getTitle()).isEqualTo(noteServiceNote0.getTitle());
+        assertThat(returnedNote.getDescription()).isEqualTo(noteServiceNote0.getDescription());
+        assertThat(returnedNote.getDate()).isEqualTo(noteServiceNote0.getDate());
         verify(noteRepository, times(1)).findById("0");
     }
 
@@ -110,6 +110,7 @@ class NoteServiceTest {
     @Test
     void testFindAllByOwner_Id_Success() {
         //Given
+        given(gmpcUserRepository.findById(Mockito.any(Integer.class))).willReturn(Optional.ofNullable(noteServiceUser0));
         given(noteRepository.findAllByOwner_Id(0)).willReturn(notes);
 
         //When
@@ -123,7 +124,7 @@ class NoteServiceTest {
     @Test
     void testFindAllByOwner_Id_NotFound() {
         //Given
-        given(noteRepository.findAllByOwner_Id(-1)).willReturn(null);
+        given(gmpcUserRepository.findById(-1)).willThrow(new UserNotFoundException());
 
         //When
         Throwable thrown = catchThrowable(() -> {
@@ -134,7 +135,7 @@ class NoteServiceTest {
         assertThat(thrown)
                 .isInstanceOf(UserNotFoundException.class)
                 .hasMessage("Could not find user");
-        verify(noteRepository, times(1)).findAllByOwner_Id(-1);
+        verify(gmpcUserRepository, times(1)).findById(-1);
     }
 
     @Test
@@ -144,45 +145,45 @@ class NoteServiceTest {
         newNote.setTitle("Amazing Title");
         newNote.setDescription("Amazing Description");
         newNote.setDate(new Date(1));
-        newNote.setOwner(user0);
+        newNote.setOwner(noteServiceUser0);
 
         given(idWorker.nextId()).willReturn(123456L);
         given(noteRepository.save(newNote)).willReturn(newNote);
-        given(gmpcUserRepository.findByEmail("aaron@email.com")).willReturn(user0);
+        given(gmpcUserRepository.findByEmail("noteservice@email.com")).willReturn(Optional.ofNullable(noteServiceUser0));
 
         //When
-        Note savedNote = noteService.save(newNote, "aaron@email.com");
+        Note savedNote = noteService.save(newNote, "noteservice@email.com");
 
         //Then
         assertThat(savedNote.getId()).isEqualTo("123456");
         assertThat(savedNote.getTitle()).isEqualTo("Amazing Title");
         assertThat(savedNote.getDescription()).isEqualTo("Amazing Description");
         assertThat(savedNote.getDate()).isEqualTo(newNote.getDate());
-        assertThat(savedNote.getOwner()).isEqualTo(user0);
+        assertThat(savedNote.getOwner()).isEqualTo(noteServiceUser0);
         verify(noteRepository, times(1)).save(newNote);
-        verify(gmpcUserRepository, times(1)).findByEmail("aaron@email.com");
+        verify(gmpcUserRepository, times(1)).findByEmail("noteservice@email.com");
     }
 
     @Test
     void testSaveFailed() {
         //Given
-        given(gmpcUserRepository.findByEmail("aaron@email.com")).willReturn(null);
+        given(gmpcUserRepository.findByEmail("noteservice@email.com")).willReturn(Optional.ofNullable(Mockito.any(GMPCUser.class)));
         //When
         Throwable thrown = catchThrowable(()->{
-            Note note = noteService.save(note0, "aaron@email.com");
+            Note note = noteService.save(noteServiceNote0, "noteservice@email.com");
         });
 
         //Then
         assertThat(thrown)
                 .isInstanceOf(UserNotFoundException.class)
-                .hasMessage("Could not find user with email aaron@email.com");
-        verify(gmpcUserRepository, times(1)).findByEmail("aaron@email.com");
+                .hasMessage("Could not find user with email noteservice@email.com");
+        verify(gmpcUserRepository, times(1)).findByEmail("noteservice@email.com");
     }
 
     @Test
     void testDeleteSuccess() {
         //Given
-        given(noteRepository.findById("0")).willReturn(Optional.of(note0));
+        given(noteRepository.findById("0")).willReturn(Optional.of(noteServiceNote0));
         doNothing().when(noteRepository).deleteById("0");
         //When
         noteService.delete("0");
@@ -219,8 +220,8 @@ class NoteServiceTest {
         update.setDescription("New Description");
         update.setDate(new Date());
 
-        given(noteRepository.findById("0")).willReturn(Optional.of(note0));
-        given(noteRepository.save(note0)).willReturn(note0);
+        given(noteRepository.findById("0")).willReturn(Optional.of(noteServiceNote0));
+        given(noteRepository.save(noteServiceNote0)).willReturn(noteServiceNote0);
 
         //When
         Note updatedNote = noteService.update("0", update);
@@ -228,9 +229,9 @@ class NoteServiceTest {
         //Then
         assertEquals(updatedNote.getTitle(), update.getTitle());
         assertEquals(updatedNote.getDescription(), update.getDescription());
-        assertEquals(updatedNote.getDate(), note0.getDate());
+        assertEquals(updatedNote.getDate(), noteServiceNote0.getDate());
         verify(noteRepository, times(1)).findById("0");
-        verify(noteRepository, times(1)).save(note0);
+        verify(noteRepository, times(1)).save(noteServiceNote0);
 
     }
 }

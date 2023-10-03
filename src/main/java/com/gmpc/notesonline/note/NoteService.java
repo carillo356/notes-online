@@ -6,6 +6,7 @@ import com.gmpc.notesonline.system.exception.UserNotFoundException;
 import com.gmpc.notesonline.user.GMPCUser;
 import com.gmpc.notesonline.user.GMPCUserRepository;
 import jakarta.transaction.Transactional;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
@@ -34,25 +35,35 @@ public class NoteService {
     }
 
     public List<Note> findAllByOwner_Id(Integer id) {
+        this.gmpcUserRepository.findById(id)
+                .orElseThrow(() -> new UserNotFoundException());
+
         List<Note> note = this.noteRepository.findAllByOwner_Id(id);
-        if(note == null) throw new UserNotFoundException();
+
         return note;
     }
 
     public Note save(Note newNote, String email) {
-        GMPCUser gmpcUser = this.gmpcUserRepository.findByEmail(email);
-        if(gmpcUser == null) throw new UserNotFoundException(email);
-        newNote.setId(String.valueOf(idWorker.nextId()));
-        newNote.setTitle(newNote.getTitle() != null ? newNote.getTitle() : "");
-        newNote.setDescription(newNote.getDescription() != null ? newNote.getDescription() : "");
-        newNote.setDate(new Date());
-        newNote.setOwner(gmpcUser);
-        return this.noteRepository.save(newNote);
+        Optional<GMPCUser> userOptional = this.gmpcUserRepository.findByEmail(email);
+        if (userOptional.isPresent()) {
+            GMPCUser user = userOptional.get();
+
+            newNote.setId(String.valueOf(idWorker.nextId()));
+            newNote.setTitle(newNote.getTitle() != null ? newNote.getTitle() : "");
+            newNote.setDescription(newNote.getDescription() != null ? newNote.getDescription() : "");
+            newNote.setDate(new Date());
+            newNote.setOwner(user);
+
+            return this.noteRepository.save(newNote);
+        } else {
+            throw new UserNotFoundException(email);
+        }
     }
 
     public void delete(String noteId) {
-        this.noteRepository.findById(noteId)
+        Note note = this.noteRepository.findById(noteId)
                 .orElseThrow(() -> new ObjectNotFoundException(Note.class, noteId));
+        note.setOwner(null);
         this.noteRepository.deleteById(noteId);
     }
 
